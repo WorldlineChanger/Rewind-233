@@ -13,57 +13,49 @@
     'use strict';
 
     // 配置参数
-    const DANMAKU_CONTAINER_SELECTOR = '.bpx-player-dm-wrap'; // 弹幕容器选择器
-    const DANMAKU_ITEM_SELECTOR = '.bpx-player-dm';          // 单个弹幕选择器
+    const DANMAKU_CONTAINER_SELECTOR = '.bpx-player-danmaku-wrap';
+    const DANMAKU_ITEM_SELECTOR = '.bpx-player-danmaku-item';
 
-    // 弹幕替换函数
+    // 弹幕替换逻辑
     function replaceDanmaku(text) {
-        return text.replace(/哈{4,}/g, match => {
-            return '2' + '3'.repeat(match.length - 1); // 生成对应位数的2333
-        });
+        return text.replace(/哈{4,}/g, match => '2' + '3'.repeat(match.length - 1));
     }
 
-    // 递归处理DOM节点
+    // 处理DOM节点
     function processNode(node) {
         if (node.nodeType === Node.TEXT_NODE) {
             const newText = replaceDanmaku(node.nodeValue);
-            if (newText !== node.nodeValue) {
-                node.nodeValue = newText;
-            }
+            if (newText !== node.nodeValue) node.nodeValue = newText;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-            for (const child of node.childNodes) {
-                processNode(child);
-            }
+            node.childNodes.forEach(processNode);
         }
     }
 
-    // 初始化MutationObserver
-    function initObserver() {
+    // 监听DOM变化
+    function initObserver(container) {
         const observer = new MutationObserver(mutations => {
-            for (const mutation of mutations) {
-                for (const node of mutation.addedNodes) {
-                    if (node.matches?.(DANMAKU_ITEM_SELECTOR)) {
-                        processNode(node);
-                    }
+            mutations.forEach(mutation => {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.matches?.(DANMAKU_ITEM_SELECTOR)) processNode(node);
+                    });
                 }
-            }
+            });
         });
+        observer.observe(container, { childList: true, subtree: true });
+    }
 
+    // 主入口
+    function main() {
         const container = document.querySelector(DANMAKU_CONTAINER_SELECTOR);
         if (container) {
-            // 处理现有弹幕
+            initObserver(container);
             container.querySelectorAll(DANMAKU_ITEM_SELECTOR).forEach(processNode);
-            // 监听新弹幕
-            observer.observe(container, {
-                childList: true,
-                subtree: true
-            });
         } else {
-            // 容器未加载时重试
-            setTimeout(initObserver, 1000);
+            setTimeout(main, 1000); // 延迟重试
         }
     }
 
-    // 启动监听
-    initObserver();
+    // 启动
+    main();
 })();

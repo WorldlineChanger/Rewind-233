@@ -5,7 +5,7 @@
 // @match       *://*.bilibili.com/*
 // @grant       none
 // @license     MIT
-// @version     1.1
+// @version     1.2
 // @author      WorldlineChanger
 // @description 将B站弹幕池中大于等于四个连续的“哈”替换为相应数量的“2333”。
 // ==/UserScript==
@@ -13,26 +13,48 @@
 (function() {
   'use strict';
  
-  // 1. 首次处理页面已有弹幕
-  document.querySelectorAll('.bili-danmaku-x-dm').forEach(node => {
+  // 替换函数
+  function replaceText(node) {
     node.innerText = node.innerText.replace(/哈{4,}/g, m =>
       '2' + '3'.repeat(m.length - 1)
     );
-  });
+  }
  
-  // 2. 监控新插入的弹幕节点
-  const observer = new MutationObserver((mutationsList) => {
-    for (const mutation of mutationsList) {
+  // 全量扫描
+  function scanAllDanmaku() {
+    document.querySelectorAll('[class*="bili-danmaku-x-dm"]').forEach(replaceText);
+  }
+ 
+  // 初次替换已有弹幕
+  scanAllDanmaku();
+ 
+  // 1. MutationObserver
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
       mutation.addedNodes.forEach(node => {
-        if (node.nodeType === 1 && node.matches('.bili-danmaku-x-dm')) {
-          node.innerText = node.innerText.replace(/哈{4,}/g, m =>
-            '2' + '3'.repeat(m.length - 1)
-          );
+        if (node.nodeType === 1 && node.matches('[class*="bili-danmaku-x-dm"]')) {
+          replaceText(node);
         }
       });
     }
   });
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true
+  });
  
-  // 监听整个文档树的新增节点
-  observer.observe(document.body, { childList: true, subtree: true });
+  // 2. 绑定 seeked 事件
+  const video = document.querySelector('video');
+  if (video) {
+    video.addEventListener('seeked', scanAllDanmaku);
+  }
+ 
+  // 3. 周期扫描
+  setInterval(scanAllDanmaku, 500);
+  // 或使用 requestAnimationFrame:
+  // function loop() { scanAllDanmaku(); requestAnimationFrame(loop); }
+  // requestAnimationFrame(loop);
+ 
 })();
